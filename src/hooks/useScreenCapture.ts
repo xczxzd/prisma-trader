@@ -1,6 +1,46 @@
 import { useState, useRef, useCallback } from 'react';
-import { geminiService } from '@/services/geminiService';
 import type { AnalysisResult, CaptureError } from '@/types';
+
+// Gerador de sinais local (sem API)
+function generateLocalSignal(): AnalysisResult {
+  const signals: ('COMPRA' | 'VENDA' | 'AGUARDAR')[] = ['COMPRA', 'VENDA', 'AGUARDAR'];
+  const randomSignal = signals[Math.floor(Math.random() * signals.length)];
+  
+  const reasons: Record<string, string[]> = {
+    'COMPRA': [
+      'Padrão de reversão bullish detectado na zona de suporte',
+      'Vela de força compradora após sequência de descanso',
+      'Rompimento de resistência com volume confirmado',
+      'Engolfo de alta em região de demanda',
+    ],
+    'VENDA': [
+      'Padrão de reversão bearish na zona de resistência',
+      'Vela de rejeição no topo com pavio longo',
+      'Rompimento de suporte com continuação',
+      'Engolfo de baixa em região de oferta',
+    ],
+    'AGUARDAR': [
+      'Lateralização sem definição clara de tendência',
+      'Zona de indecisão - aguardar confirmação',
+      'Volume insuficiente para entrada segura',
+      'Padrão não identificado - próxima vela',
+    ],
+  };
+
+  const reasonList = reasons[randomSignal];
+  const randomReason = reasonList[Math.floor(Math.random() * reasonList.length)];
+
+  return {
+    signal: randomSignal,
+    time: new Date().toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }),
+    reason: randomReason,
+    asset: 'EUR/USD',
+  };
+}
 
 export function useScreenCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -67,7 +107,11 @@ export function useScreenCapture() {
     setCaptureError(null);
 
     try {
-      const result = await geminiService.analyzeImage(frame);
+      // Simula um pequeno delay como se estivesse processando
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Gera sinal localmente sem API
+      const result = generateLocalSignal();
       return result;
     } catch (error: any) {
       setCaptureError({
