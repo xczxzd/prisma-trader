@@ -5,12 +5,10 @@ import { SignalHistory } from "@/components/SignalHistory";
 import { PrismaLogo } from "@/components/PrismaLogo";
 import { StatsCard } from "@/components/StatsCard";
 import { ScreenCaptureControl } from "@/components/ScreenCaptureControl";
-import { ApiKeyConfig } from "@/components/ApiKeyConfig";
-import { BarChart3, Target, Zap, Clock, Settings, Volume2, VolumeX } from "lucide-react";
+import { BarChart3, Target, Zap, Clock, Volume2, VolumeX } from "lucide-react";
 import { useScreenCapture } from "@/hooks/useScreenCapture";
 import { useAudioNotification } from "@/hooks/useAudioNotification";
-import { useApiKeyManager } from "@/hooks/useApiKeyManager";
-import type { AnalysisResult, SignalHistoryItem } from "@/types";
+import type { SignalHistoryItem } from "@/types";
 
 export default function Index() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -43,7 +41,6 @@ export default function Index() {
   } = useScreenCapture();
 
   const { speak, announceSignal, playAlertSound } = useAudioNotification();
-  const { apiKeys, isConfigured, showConfig, saveApiKeys, toggleConfig, setShowConfig } = useApiKeyManager();
 
   // Timer
   useEffect(() => {
@@ -76,11 +73,6 @@ export default function Index() {
   }, [isCapturing]);
 
   const handleAnalyzeNow = useCallback(async () => {
-    if (!isConfigured) {
-      setShowConfig(true);
-      return;
-    }
-
     if (soundEnabled) {
       playAlertSound();
     }
@@ -116,7 +108,7 @@ export default function Index() {
         announceSignal(result.signal, result.reason);
       }
     }
-  }, [isConfigured, soundEnabled, analyzeFrame, playAlertSound, announceSignal, setShowConfig]);
+  }, [soundEnabled, analyzeFrame, playAlertSound, announceSignal]);
 
   const handleSpeak = useCallback((text: string) => {
     if (soundEnabled) {
@@ -171,13 +163,6 @@ export default function Index() {
                 <VolumeX className="w-5 h-5 text-muted-foreground" />
               )}
             </button>
-            <button
-              onClick={toggleConfig}
-              className="glass p-2 rounded-lg hover:bg-secondary transition-colors"
-              title="Configurar API"
-            >
-              <Settings className="w-5 h-5 text-muted-foreground" />
-            </button>
             <StatusIndicator isActive={isCapturing} />
             <div className="glass rounded-xl px-4 py-2 font-mono text-lg">
               <span className="text-muted-foreground text-sm mr-2">Horário</span>
@@ -185,18 +170,6 @@ export default function Index() {
             </div>
           </div>
         </header>
-
-        {/* API Key Warning */}
-        {!isConfigured && (
-          <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl">
-            <p className="text-warning text-sm">
-              ⚠️ Configure suas chaves API do Gemini para começar a analisar.{' '}
-              <button onClick={toggleConfig} className="underline font-medium">
-                Clique aqui para configurar
-              </button>
-            </p>
-          </div>
-        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -298,20 +271,11 @@ export default function Index() {
         {/* Footer */}
         <footer className="mt-12 text-center">
           <p className="text-muted-foreground text-sm">
-            Desenvolvido com <span className="text-primary font-medium">Gemini 1.5 Flash</span> • 
+            Motor de Análise <span className="text-primary font-medium">Prisma IA</span> • 
             Análise automática nos segundos finais de cada minuto
           </p>
         </footer>
       </div>
-
-      {/* API Key Config Modal */}
-      {showConfig && (
-        <ApiKeyConfig
-          apiKeys={apiKeys}
-          onSave={saveApiKeys}
-          onClose={() => setShowConfig(false)}
-        />
-      )}
     </div>
   );
 }
