@@ -1,46 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
-import type { AnalysisResult, CaptureError } from '@/types';
+import type { CaptureError } from '@/types';
+import { analyzeMarket, formatAnalysisResult } from '@/services/technicalAnalysis';
 
-// Gerador de sinais local (sem API)
-function generateLocalSignal(): AnalysisResult {
-  const signals: ('COMPRA' | 'VENDA' | 'AGUARDAR')[] = ['COMPRA', 'VENDA', 'AGUARDAR'];
-  const randomSignal = signals[Math.floor(Math.random() * signals.length)];
-  
-  const reasons: Record<string, string[]> = {
-    'COMPRA': [
-      'Padrão de reversão bullish detectado na zona de suporte',
-      'Vela de força compradora após sequência de descanso',
-      'Rompimento de resistência com volume confirmado',
-      'Engolfo de alta em região de demanda',
-    ],
-    'VENDA': [
-      'Padrão de reversão bearish na zona de resistência',
-      'Vela de rejeição no topo com pavio longo',
-      'Rompimento de suporte com continuação',
-      'Engolfo de baixa em região de oferta',
-    ],
-    'AGUARDAR': [
-      'Lateralização sem definição clara de tendência',
-      'Zona de indecisão - aguardar confirmação',
-      'Volume insuficiente para entrada segura',
-      'Padrão não identificado - próxima vela',
-    ],
-  };
-
-  const reasonList = reasons[randomSignal];
-  const randomReason = reasonList[Math.floor(Math.random() * reasonList.length)];
-
-  return {
-    signal: randomSignal,
-    time: new Date().toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }),
-    reason: randomReason,
-    asset: 'EUR/USD',
-  };
-}
+// Controle para evitar múltiplos sinais na mesma vela
+let lastSignalMinute: number = -1;
+let lastSignalType: 'COMPRA' | 'VENDA' | 'AGUARDAR' | null = null;
 
 export function useScreenCapture() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -90,7 +54,7 @@ export function useScreenCapture() {
     }, 1000);
   }, []);
 
-  const analyzeFrame = useCallback(async (): Promise<AnalysisResult | null> => {
+  const analyzeFrame = useCallback(async () => {
     if (!getFrameRef.current || isAnalyzing) return null;
 
     const frame = getFrameRef.current();
@@ -103,21 +67,63 @@ export function useScreenCapture() {
       return null;
     }
 
+    // Verifica se já gerou sinal para este minuto
+    const currentMinute = new Date().getMinutes();
+    
     setIsAnalyzing(true);
     setCaptureError(null);
 
     try {
-      // Simula um pequeno delay como se estivesse processando
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Simula processamento da imagem
+      await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Gera sinal localmente sem API
-      const result = generateLocalSignal();
-      return result;
+      // Executa análise técnica inteligente
+      const analysis = analyzeMarket();
+      const result = formatAnalysisResult(analysis);
+      
+      // Só gera novo sinal se:
+      // 1. É um minuto diferente do último sinal
+      // 2. OU é um sinal diferente (COMPRA/VENDA mudou)
+      // 3. E não é AGUARDAR repetido
+      
+      const isNewMinute = currentMinute !== lastSignalMinute;
+      const isDifferentSignal = result.signal !== lastSignalType;
+      const isActionableSignal = result.signal !== 'AGUARDAR';
+      
+      if (isActionableSignal && (isNewMinute || isDifferentSignal)) {
+        lastSignalMinute = currentMinute;
+        lastSignalType = result.signal;
+        
+        return {
+          signal: result.signal,
+          time: result.time,
+          reason: result.reason,
+          asset: result.asset,
+          confidence: result.confidence,
+          details: result.details,
+          alerts: result.alerts
+        };
+      } else if (result.signal === 'AGUARDAR') {
+        // Retorna AGUARDAR mas não atualiza o lastSignal
+        // para permitir que o próximo sinal seja gerado
+        return {
+          signal: result.signal,
+          time: result.time,
+          reason: result.reason,
+          asset: result.asset,
+          confidence: result.confidence,
+          details: result.details,
+          alerts: result.alerts
+        };
+      }
+      
+      // Se já gerou sinal para este minuto, retorna null
+      return null;
     } catch (error: any) {
       setCaptureError({
         id: 'analysis-error',
         title: 'Erro na Análise',
-        message: error.message || 'Erro desconhecido ao analisar a imagem.',
+        message: error.message || 'Erro desconhecido ao analisar.',
       });
       return null;
     } finally {
